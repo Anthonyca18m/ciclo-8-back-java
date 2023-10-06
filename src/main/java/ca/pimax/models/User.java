@@ -50,7 +50,7 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String password;
     @Column(nullable = false)
-    private String status;
+    private Integer status;
     private LocalDateTime created_at;
     private LocalDateTime updated_at;
 
@@ -72,6 +72,6 @@ public class User implements UserDetails {
     }
     @Override
     public boolean isEnabled() {
-        return true;
+        return (this.getStatus() == 1);
     };
 }

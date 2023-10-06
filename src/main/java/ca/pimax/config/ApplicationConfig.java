@@ -41,6 +41,7 @@ public class ApplicationConfig {
         return new BCryptPasswordEncoder();
     }
 
+    @Bean
     public UserDetailsService userDetailService() 
     {
         return username -> userRepository.findByUsername(username).orElseThrow(() -> new UsernameNotFoundException("User not found"));

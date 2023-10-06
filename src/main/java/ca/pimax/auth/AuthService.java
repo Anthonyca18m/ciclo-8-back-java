@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -22,19 +23,27 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
 
-    public LoginResponse login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request) 
+    {
         authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
         );
-
+        
+        User detail = userRepository.findByUsernameAndStatus(request.getUsername(), 1);
+        
         UserDetails user = userRepository.findByUsername(request.getUsername()).orElseThrow();
+        String token = jwtService.getToken(user);        
 
         return LoginResponse.builder()
-            .token(jwtService.getToken(user))
+            .id(detail.getId())
+            .username(user.getUsername())
+            .role(detail.getRole().toString())
+            .name(detail.getName())
+            .token(token)
             .build();
     }
 
-    public LoginResponse register(RegisterRequest request) {
+    public void register(RegisterRequest request) {
         User user = User.builder()
                 .username(request.getUsername().toLowerCase())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -43,12 +52,12 @@ public class AuthService {
                 .document(request.getDocument())
                 .created_at(LocalDateTime.now())
                 .role(request.getRole())
-                .status("1")
+                .status(1)
                 .build();
 
         userRepository.save(user);
 
-        return LoginResponse.builder().token(jwtService.getToken(user)).build();
+        // return LoginResponse.builder().token(jwtService.getToken(user)).build();
     }
 
     public String generateCode(String username)

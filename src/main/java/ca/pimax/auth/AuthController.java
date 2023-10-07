@@ -21,6 +21,11 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));        
     }
 
+    @PostMapping(value="logout")
+    public void logout(@RequestBody LogoutRequest request) {
+    }
+    
+
     @PostMapping(value = "register")
     public void register(@RequestBody RegisterRequest request) {
         // return ResponseEntity.ok(authService.register(request));

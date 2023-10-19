@@ -7,6 +7,7 @@ import ca.pimax.auth.RegisterRequest;
 import ca.pimax.models.User;
 import ca.pimax.requests.UserUpdateRequest;
 import ca.pimax.services.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -41,19 +42,19 @@ public class UserController {
     }
 
     @PostMapping
-    public void register(@Valid @RequestBody RegisterRequest request) {
-        userService.register(request);
+    public void register(@Valid @RequestBody RegisterRequest request, HttpServletRequest rq) {
+        userService.register(request, rq);
     }
 
     @PostMapping(path = "/{id}")
-    public User updateById(@Valid @RequestBody UserUpdateRequest request, @PathVariable Long id)
+    public User updateById(@Valid @RequestBody UserUpdateRequest request, @PathVariable Long id, HttpServletRequest rq)
     {
-        return userService.updateById(request, id);
+        return userService.updateById(request, id, rq);
     }
 
     @DeleteMapping(path = "/{id}")
-    public boolean deleteById(@PathVariable Long id)
+    public boolean deleteById(@PathVariable Long id, HttpServletRequest rq)
     {
-        return userService.deleteById(id);
+        return userService.deleteById(id, rq);
     }
 }

@@ -12,12 +12,14 @@ import org.springframework.stereotype.Service;
 
 import ca.pimax.repository.UserRepository;
 import ca.pimax.requests.UserUpdateRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
+    private final LogService logService;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;  
 
@@ -26,9 +28,11 @@ public class UserService {
         return userRepository.findById(id);
     }
 
-    public User updateById(UserUpdateRequest request, Long id)
+    public User updateById(UserUpdateRequest request, Long id, HttpServletRequest rq)
     {
         User user = userRepository.findById(id).get();
+
+        logService.insertLog(rq, "UPDATE ADM", user.getUsername() +" | "+ user.getName(), request.getUsername() +" | "+ request.getName());
 
         user.setName(request.getName());
         user.setDocument(request.getDocument());
@@ -48,7 +52,7 @@ public class UserService {
         return userRepository.findAllAdmins(search, limit);
     }
 
-    public void register(RegisterRequest request) 
+    public void register(RegisterRequest request, HttpServletRequest rq) 
     {
         User user = User.builder()
                 .username(request.getUsername().toLowerCase())
@@ -62,6 +66,8 @@ public class UserService {
                 .build();
 
         userRepository.save(user);
+
+        logService.insertLog(rq, "REG ADM", null, request.getUsername() +" | "+ request.getName());
     }
 
     public String generateCode(String username)
@@ -69,9 +75,11 @@ public class UserService {
         return userRepository.getCode(username);        
     }
 
-    public boolean deleteById(Long id) {
+    public boolean deleteById(Long id, HttpServletRequest rq) {
         User user = userRepository.findById(id).get();
         try {
+            logService.insertLog(rq, "DELETE USER", user.getUsername() +" | "+ user.getName(), id.toString());
+            
             userRepository.delete(user);
             return true;
         } catch (Exception e) {

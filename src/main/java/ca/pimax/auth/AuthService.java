@@ -44,24 +44,6 @@ public class AuthService {
             .build();
     }
 
-    // public void register(RegisterRequest request) 
-    // {
-    //     User user = User.builder()
-    //             .username(request.getUsername().toLowerCase())
-    //             .password(passwordEncoder.encode(request.getPassword()))
-    //             .code(generateCode(request.getName()))
-    //             .name(request.getName().toUpperCase())
-    //             .document(request.getDocument())
-    //             .created_at(LocalDateTime.now())
-    //             .role(request.getRole())
-    //             .status(1)
-    //             .build();
-
-    //     userRepository.save(user);
-
-    //     // return LoginResponse.builder().token(jwtService.getToken(user)).build();
-    // }
-
     public void insertLogLogin(Long user_id)
     {
         userRepository.insertLogLogin(user_id);

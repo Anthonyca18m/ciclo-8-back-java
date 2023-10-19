@@ -1,8 +1,8 @@
-package ca.pimax.auth;
+package ca.pimax.requests;
 
-import ca.pimax.models.Role;
-import jakarta.validation.Valid;
+import io.micrometer.common.lang.Nullable;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -14,10 +14,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class RegisterRequest {
-    
-    @Valid
-    private Role role;
+public class UserUpdateRequest {
 
     @NotBlank(message = "El campo es obligatorio.")
     private String name;
@@ -31,7 +28,10 @@ public class RegisterRequest {
     @Pattern(regexp = "^[a-zA-Z]+$", message = "El campo solo debe tener letras.")
     private String username;
 
-    @NotBlank(message = "El campo es obligatorio.")
-    @Size(min = 6, max = 50, message = "El campo debe tener 6 caracteres como mínimo.")
+    @Nullable
+    @Size(min = 0, max = 50, message = "El campo debe tener 6 caracteres como mínimo.")
     private String password;
+
+    @NotNull(message = "El campo es obligatorio.")
+    private Integer status;
 }

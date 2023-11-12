@@ -123,11 +123,12 @@ public class EmployerService {
 
     public boolean deleteById(Long id, HttpServletRequest rq) {
         User user = userR.findById(id).get();
-        try {
-            logService.insertLog(rq, "DELETE USR", user.getName(), id.toString());
-            
-            int exits = employerRepository.deleteContrato(id);
-            employerRepository.deleteEmployer(id);
+        try {            
+            int exits = employerRepository.deleteContrato(id);            
+            if (exits == 1) {
+                employerRepository.deleteEmployer(id);
+                logService.insertLog(rq, "DELETE USR", user.getName(), id.toString());
+            }            
             return (exits == 1);
         } catch (Exception e) {
             return false;

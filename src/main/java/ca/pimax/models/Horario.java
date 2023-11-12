@@ -1,6 +1,7 @@
 package ca.pimax.models;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -25,10 +26,10 @@ public class Horario {
     private Long id;
 
     @Column(nullable = false)
-    private String hour_in;
+    private LocalTime hour_in;
 
     @Column(nullable = false)
-    private String hour_out;
+    private LocalTime hour_out;
 
     @Column(nullable = false)
     private Integer tolerancia;

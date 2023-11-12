@@ -47,4 +47,11 @@ public class LogService {
     public List<LogMove> getLogMoves(String search, Integer limit) {
         return logRepository.getLogMoves(search, limit);
     }
+
+    public String getUserSession()
+    {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        return username;
+    }
 }

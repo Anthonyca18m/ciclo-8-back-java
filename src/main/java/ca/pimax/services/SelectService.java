@@ -15,27 +15,9 @@ import lombok.RequiredArgsConstructor;
 public class SelectService {
     
     private final SelectRepository selectRepository;
-
-    public List<Map<String, Object>> getSelectArea() {
-        return selectRepository.areas().stream().map(rs -> {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", rs[0]);
-            map.put("name", rs[1]);
-            return map;
-        }).collect(Collectors.toList());
-    }
-
-    public List<Map<String, Object>> getSelectJornada() {
-        return selectRepository.jornadas().stream().map(rs -> {
-            Map<String, Object> map = new HashMap<>();
-            map.put("id", rs[0]);
-            map.put("name", rs[1]);
-            return map;
-        }).collect(Collectors.toList());
-    }
-
-    public List<Map<String, Object>> getSelectHorario() {
-        return selectRepository.horarios().stream().map(rs -> {
+    
+    public List<Map<String, Object>> getSelect(String option) {
+        return selectRepository.select(option).stream().map(rs -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", rs[0]);
             map.put("name", rs[1]);

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 15-11-2023 a las 18:51:01
+-- Tiempo de generación: 16-11-2023 a las 02:48:40
 -- Versión del servidor: 10.4.28-MariaDB
 -- Versión de PHP: 8.0.28
 
@@ -25,6 +25,22 @@ DELIMITER $$
 --
 -- Procedimientos
 --
+CREATE DEFINER=`root`@`localhost` PROCEDURE `clear_logins` ()   BEGIN
+    TRUNCATE TABLE log_logins;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `exits_area_users` (IN `area` INT)   BEGIN
+    SELECT COUNT(*) FROM users WHERE area_id = area;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `exits_horario_contratos` (IN `horario` INT)   BEGIN
+    SELECT COUNT(*) FROM contratos WHERE horario_id = horario;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `exits_type_contratos` (IN `type_contrato` INT)   BEGIN
+    SELECT COUNT(*) FROM contratos WHERE type_contrato_id = type_contrato;
+END$$
+
 CREATE DEFINER=`root`@`localhost` PROCEDURE `generar_codigo` (IN `inputParam` VARCHAR(255))   BEGIN
     DECLARE generatedCode VARCHAR(255);
     DECLARE newCode VARCHAR(255);
@@ -47,13 +63,84 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `generar_codigo` (IN `inputParam` VA
     SELECT generatedCode;
 END$$
 
+CREATE DEFINER=`root`@`localhost` PROCEDURE `list_areas` (IN `searching` VARCHAR(255), IN `limitRows` INT)   BEGIN
+    SELECT * FROM areas a WHERE (a.area LIKE CONCAT('%', searching, '%') OR a.id LIKE CONCAT('%', searching, '%')) LIMIT limitRows;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `list_asistencia` (IN `searching` VARCHAR(255), IN `type_es` VARCHAR(255), IN `device` VARCHAR(255), IN `limitRows` INT)   BEGIN
+    
+    SELECT ou.id as aId, u.name, DATE_FORMAT(ou.time_at, '%Y-%d-%c %H:%i:%s %p') as time_at, IF(ou.in_out = 'E', 'ENTRADA', 'SALIDA'), IF(ou.type_r = 'A', 'AUTOMATICO', 'MANUAL'), ou.user_created
+        FROM in_out_users_at ou INNER JOIN users u ON ou.user_id = u.id
+        WHERE (u.name LIKE CONCAT('%', searching, '%') OR u.username LIKE CONCAT('%', searching, '%') OR u.code LIKE CONCAT('%', searching, '%')) 
+        AND (type_es = '' OR ou.in_out = type_es) AND (device = '' OR ou.type_r = device) 
+        AND u.role = 'USR' ORDER BY ou.id DESC LIMIT limitRows;
+    
+    
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `list_employes` (IN `searching` VARCHAR(255), IN `limitRows` INT, IN `area_id` VARCHAR(255))   BEGIN
+    SELECT * FROM users u 
+    	WHERE (u.name LIKE CONCAT('%', searching, '%') OR u.document LIKE CONCAT('%', searching, '%') OR u.code LIKE CONCAT('%', searching, '%'))  
+        AND (area_id IS NULL OR u.area_id = area_id) 
+        AND u.role = 'USR' LIMIT limitRows;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `list_horarios` (IN `searching` VARCHAR(255), IN `limitRows` INT)   BEGIN
+    SELECT * FROM horarios h WHERE (h.hour_in LIKE CONCAT('%', searching, '%') OR h.hour_out LIKE CONCAT('%', searching, '%') OR h.id LIKE CONCAT('%', searching, '%'))  LIMIT limitRows;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `list_log_logins` (IN `searching` VARCHAR(255), IN `limitRows` INT)   BEGIN
+    SELECT ll.id, u.username, u.name, ll.created_at FROM log_logins ll inner join users u on ll.user_id = u.id 
+        WHERE (u.name LIKE CONCAT('%', searching, '%') OR u.username LIKE CONCAT('%', searching, '%') OR u.code LIKE CONCAT('%', searching, '%')) ORDER BY ll.id DESC LIMIT limitRows;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `list_log_move` (IN `searching` VARCHAR(255), IN `limitRows` INT)   BEGIN
+    SELECT * FROM log_updates WHERE (username LIKE CONCAT('%', searching, '%') OR action_name LIKE CONCAT('%', searching, '%') OR url_full LIKE CONCAT('%', searching, '%')) ORDER BY id DESC LIMIT limitRows;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `list_type_contratos` (IN `searching` VARCHAR(255), IN `limitRows` INT)   BEGIN
+    SELECT * FROM types_contratos h WHERE (h.name LIKE CONCAT('%', searching, '%') OR h.id LIKE CONCAT('%', searching, '%')) LIMIT limitRows;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `list_users` (IN `searching` VARCHAR(255), IN `limitRows` INT)   BEGIN
+    SELECT * FROM users u 
+    WHERE (u.name LIKE CONCAT('%', searching, '%') 
+    OR u.username LIKE CONCAT('%', searching, '%') 
+    OR u.code LIKE CONCAT('%', searching, '%')) 
+    AND u.role = 'ADMIN' 
+    LIMIT limitRows;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `select_uni` (IN `type_select` VARCHAR(255))   BEGIN
+    CASE 
+        WHEN type_select = 'areas' THEN 
+            SELECT id, area AS name FROM areas ORDER BY area ASC;
+        WHEN type_select = 'jornadas' THEN 
+            SELECT id, name FROM types_contratos ORDER BY name ASC;
+        WHEN type_select = 'horarios' THEN 
+            SELECT id, CONCAT('De ', hour_in, ' a ', hour_out, ' T: ', tolerancia) AS name FROM horarios ORDER BY id ASC;
+        WHEN type_select = 'employes' THEN 
+            SELECT u.id as id, u.name as name FROM users u INNER JOIN contratos c ON u.id = c.user_id WHERE u.status = 1 AND c.status = 1 AND u.role = 'USR';
+    END CASE;
+END$$
+
 --
 -- Funciones
 --
-CREATE DEFINER=`root`@`localhost` FUNCTION `ConcatenaNumeroString` (`numero` INT(4)) RETURNS VARCHAR(255) CHARSET utf8mb4 COLLATE utf8mb4_general_ci DETERMINISTIC BEGIN
-    -- Concatena el número con un string de tu elección.
-    -- Aquí, estoy usando el string ' - Ejemplo', pero puedes cambiarlo.
-    RETURN CONCAT(numero, ' - Ejemplo');
+CREATE DEFINER=`root`@`localhost` FUNCTION `delete_employer` (`user` INT) RETURNS INT(11) DETERMINISTIC BEGIN
+    DECLARE filas_afectadas INT DEFAULT 0;
+
+    DELETE FROM contratos WHERE user_id = user AND (SELECT COUNT(*) FROM in_out_users_at ou WHERE ou.user_id = user) = 0;
+    SET filas_afectadas = filas_afectadas + ROW_COUNT();
+
+    DELETE FROM users WHERE id = user AND role = 'USR' AND (SELECT COUNT(*) FROM in_out_users_at ou WHERE ou.user_id = user) = 0;
+    SET filas_afectadas = filas_afectadas + ROW_COUNT();
+
+    IF filas_afectadas > 0 THEN
+        RETURN 1;
+    ELSE
+        RETURN 0;
+    END IF;
 END$$
 
 CREATE DEFINER=`root`@`localhost` FUNCTION `registrarAsistencia` (`codigo` INT(4), `type_r` CHAR(1), `user_created` VARCHAR(255)) RETURNS VARCHAR(255) CHARSET utf8mb4 COLLATE utf8mb4_general_ci DETERMINISTIC BEGIN
@@ -129,7 +216,6 @@ INSERT INTO `areas` (`id`, `area`, `created_at`, `updated_at`, `user_created`, `
 (5, 'LOGISTICA', '2023-10-25 00:50:15', NULL, NULL, NULL),
 (6, 'SEGURIDAD', '2023-10-25 00:50:15', NULL, NULL, NULL),
 (7, 'VENTAS', '2023-10-25 00:50:15', NULL, NULL, NULL),
-(8, 'ABASTECIMIENTO', '2023-11-13 03:32:29', NULL, 'mcachi', NULL),
 (9, 'ATENCIÓN AL CLIENTE', '2023-11-13 03:32:51', NULL, 'mcachi', NULL);
 
 -- --------------------------------------------------------
@@ -158,13 +244,7 @@ CREATE TABLE `contratos` (
 --
 
 INSERT INTO `contratos` (`id`, `user_id`, `horario_id`, `type_contrato_id`, `date_init`, `date_end`, `salario`, `status`, `created_at`, `updated_at`, `user_created`, `user_updated`) VALUES
-(19, 35, 1, 3, '2023-11-01', '2024-11-01', 3000, '1', '2023-11-12 22:40:27', NULL, 'mcachi', NULL),
-(20, 36, 2, 3, '2023-10-30', '2024-11-06', 5500, '1', '2023-11-12 23:44:04', '2023-11-13 01:17:40', 'mcachi', 'mcachi'),
-(21, 37, 1, 1, '2023-10-31', '2024-11-30', 1000, '1', '2023-11-12 23:44:35', NULL, 'mcachi', NULL),
-(22, 38, 1, 4, '2023-10-29', '2024-10-29', 2000, '1', '2023-11-12 23:59:57', '2023-11-13 00:57:36', 'mcachi', 'mcachi'),
-(23, 39, 2, 4, '2023-10-29', '2022-11-27', 1500, '1', '2023-11-13 00:05:00', '2023-11-13 01:24:12', 'mcachi', 'mcachi'),
-(24, 40, 3, 4, '2023-10-31', '2024-06-02', 3500, '1', '2023-11-13 01:28:28', NULL, 'mcachi', NULL),
-(25, 41, 6, 4, '2023-10-31', '2024-10-31', 2000, '1', '2023-11-13 01:29:12', NULL, 'mcachi', NULL);
+(36, 52, 1, 4, '2023-10-30', '2023-12-08', 10000, '1', '2023-11-16 06:22:35', NULL, 'mcachi', NULL);
 
 -- --------------------------------------------------------
 
@@ -192,8 +272,7 @@ INSERT INTO `horarios` (`id`, `hour_in`, `hour_out`, `tolerancia`, `created_at`,
 (2, '09:00:00.000000', '18:00:00.000000', 10, '2023-10-25 02:39:07', NULL, '', ''),
 (3, '10:20:00.059000', '16:00:00.000000', 10, '2023-10-25 02:39:07', NULL, '', ''),
 (4, '07:00:00.000000', '13:00:00.000000', 10, '2023-10-25 02:39:07', NULL, '', ''),
-(5, '08:00:00.000000', '14:00:00.000000', 10, '2023-10-25 02:39:07', NULL, '', ''),
-(6, '09:00:00.000000', '16:00:00.000000', 10, '2023-10-25 02:39:07', '2023-11-13 03:10:56', '', 'mcachi');
+(5, '08:00:00.000000', '14:00:00.000000', 10, '2023-10-25 02:39:07', NULL, '', '');
 
 -- --------------------------------------------------------
 
@@ -222,85 +301,6 @@ CREATE TABLE `log_logins` (
   `user_id` bigint(20) UNSIGNED DEFAULT NULL,
   `created_at` datetime(6) DEFAULT current_timestamp(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Volcado de datos para la tabla `log_logins`
---
-
-INSERT INTO `log_logins` (`id`, `user_id`, `created_at`) VALUES
-(10, 1, '2023-10-24 15:46:37.843330'),
-(11, 1, '2023-10-24 15:46:46.373208'),
-(12, 1, '2023-10-24 15:46:51.234439'),
-(13, 1, '2023-10-24 15:50:17.001220'),
-(14, 1, '2023-10-24 16:54:50.928526'),
-(15, 1, '2023-10-24 19:44:20.007920'),
-(16, 1, '2023-10-24 19:44:26.699625'),
-(17, 1, '2023-10-24 19:57:45.740041'),
-(18, 1, '2023-10-24 20:43:57.804716'),
-(19, 1, '2023-10-24 20:46:12.898782'),
-(20, 1, '2023-10-24 21:28:13.726293'),
-(21, 1, '2023-10-24 23:30:27.002407'),
-(22, 1, '2023-11-06 15:36:04.397921'),
-(23, 1, '2023-11-06 16:03:23.590984'),
-(24, 1, '2023-11-06 16:16:23.873073'),
-(25, 1, '2023-11-06 16:48:17.897043'),
-(26, 1, '2023-11-06 17:00:31.077871'),
-(27, 1, '2023-11-06 17:07:04.309718'),
-(28, 1, '2023-11-06 17:52:12.495457'),
-(29, 1, '2023-11-06 18:22:51.717793'),
-(30, 1, '2023-11-06 20:02:46.550273'),
-(31, 1, '2023-11-06 20:22:24.192359'),
-(32, 1, '2023-11-06 20:46:40.200102'),
-(33, 1, '2023-11-06 21:16:56.133517'),
-(34, 1, '2023-11-06 21:27:10.890470'),
-(35, 5, '2023-11-06 21:31:51.087830'),
-(36, 1, '2023-11-06 21:57:41.489872'),
-(37, 1, '2023-11-06 22:22:24.508602'),
-(38, 1, '2023-11-06 22:46:35.784363'),
-(39, 1, '2023-11-07 19:39:36.500470'),
-(40, 1, '2023-11-07 20:19:08.966438'),
-(41, 1, '2023-11-11 12:26:52.554855'),
-(42, 1, '2023-11-11 12:51:48.230487'),
-(43, 1, '2023-11-11 13:34:04.875118'),
-(44, 1, '2023-11-11 14:05:02.782819'),
-(45, 1, '2023-11-11 14:32:27.272692'),
-(46, 1, '2023-11-11 15:17:45.459918'),
-(47, 1, '2023-11-11 15:27:38.410175'),
-(48, 1, '2023-11-11 16:19:12.498378'),
-(49, 1, '2023-11-11 16:46:01.467303'),
-(50, 1, '2023-11-11 17:12:23.430728'),
-(51, 1, '2023-11-11 17:37:00.277989'),
-(52, 1, '2023-11-11 18:06:26.642686'),
-(53, 1, '2023-11-11 18:49:59.080440'),
-(54, 1, '2023-11-11 19:14:06.439301'),
-(55, 1, '2023-11-12 12:38:15.147063'),
-(56, 1, '2023-11-12 13:05:33.023937'),
-(57, 1, '2023-11-12 13:32:18.983360'),
-(58, 1, '2023-11-12 13:58:57.195382'),
-(59, 1, '2023-11-12 14:54:47.409812'),
-(60, 1, '2023-11-12 15:19:01.142715'),
-(61, 1, '2023-11-12 15:51:44.580049'),
-(62, 1, '2023-11-12 16:28:05.870754'),
-(63, 1, '2023-11-12 16:55:26.064395'),
-(64, 1, '2023-11-12 17:14:18.479354'),
-(65, 1, '2023-11-12 17:14:40.090566'),
-(66, 1, '2023-11-12 17:15:51.598080'),
-(67, 1, '2023-11-12 17:41:08.105517'),
-(68, 1, '2023-11-12 18:06:34.663306'),
-(69, 1, '2023-11-12 18:09:07.246387'),
-(70, 1, '2023-11-12 18:11:12.763141'),
-(71, 1, '2023-11-12 18:13:09.247927'),
-(72, 1, '2023-11-12 18:46:22.402332'),
-(73, 1, '2023-11-12 19:18:47.912070'),
-(74, 1, '2023-11-12 19:19:52.153666'),
-(75, 1, '2023-11-12 19:45:47.309138'),
-(76, 1, '2023-11-12 20:18:57.753197'),
-(77, 1, '2023-11-12 20:43:47.686168'),
-(78, 1, '2023-11-12 21:08:02.651020'),
-(79, 1, '2023-11-13 17:41:09.051280'),
-(80, 1, '2023-11-15 10:01:46.670170'),
-(81, 1, '2023-11-15 11:02:26.355201'),
-(82, 1, '2023-11-15 11:44:11.637145');
 
 -- --------------------------------------------------------
 
@@ -434,7 +434,31 @@ INSERT INTO `log_updates` (`id`, `user_id`, `action_name`, `orig_data`, `rep_dat
 (107, NULL, 'DELETE AREA', 'Area(id=10, area=TESTSEEF, created_at=2023-11-12T17:32:56, updated_at=2023-11-12T17:33, user_created=mcachi, user_updated=mcachi)', '10', 'http://127.0.0.1:4001/api/v1/areas/10', '127.0.0.1', '2023-11-13 03:33:04', 'mcachi'),
 (108, NULL, 'REG TIPO CONTRATO', NULL, 'RegisterTypeContratoRequest(name=dfgdrgd)', 'http://127.0.0.1:4001/api/v1/typecontratos', '127.0.0.1', '2023-11-13 03:55:26', 'mcachi'),
 (109, NULL, 'UPT TIPO CONTRATO', 'TypeContrato(id=5, name=dfgdrgd)', 'TypeContratoUpdateRequest(name=werwwew)', 'http://127.0.0.1:4001/api/v1/typecontratos/5', '127.0.0.1', '2023-11-13 03:55:30', 'mcachi'),
-(110, NULL, 'DELETE TIPO CONTRATO', 'TypeContrato(id=5, name=werwwew)', '5', 'http://127.0.0.1:4001/api/v1/typecontratos/5', '127.0.0.1', '2023-11-13 03:56:15', 'mcachi');
+(110, NULL, 'DELETE TIPO CONTRATO', 'TypeContrato(id=5, name=werwwew)', '5', 'http://127.0.0.1:4001/api/v1/typecontratos/5', '127.0.0.1', '2023-11-13 03:56:15', 'mcachi'),
+(111, NULL, 'DELETE MARCACION', '31 TEST T RABAJADOR E A 253 null', '31', 'http://127.0.0.1:4001/api/v1/asistencia/31', '127.0.0.1', '2023-11-16 00:03:29', 'mcachi'),
+(112, NULL, 'REG USR', NULL, 'RegisterEmployerRequest(name=fdgdfgdgdrg, document=45674564, area_id=4, jornada_id=4, horario_id=1, dateInit=2023-10-31, dateEnd=2023-11-29, c_salary=4000.0, role=USR)', 'http://127.0.0.1:4001/api/v1/employes', '127.0.0.1', '2023-11-16 05:48:52', 'mcachi'),
+(113, NULL, 'DELETE USR', 'FDGDFGDGDRG', '43', 'http://127.0.0.1:4001/api/v1/employes/43', '127.0.0.1', '2023-11-16 05:49:02', 'mcachi'),
+(114, NULL, 'REG USR', NULL, 'RegisterEmployerRequest(name=tryhrtyrty, document=45645634, area_id=3, jornada_id=4, horario_id=3, dateInit=2023-10-31, dateEnd=2023-11-29, c_salary=4000.0, role=USR)', 'http://127.0.0.1:4001/api/v1/employes', '127.0.0.1', '2023-11-16 05:49:39', 'mcachi'),
+(115, NULL, 'DELETE USR', 'TRYHRTYRTY', '44', 'http://127.0.0.1:4001/api/v1/employes/44', '127.0.0.1', '2023-11-16 05:49:44', 'mcachi'),
+(116, NULL, 'REG USR', NULL, 'RegisterEmployerRequest(name=gdhhgfhfghh, document=54645645, area_id=4, jornada_id=1, horario_id=3, dateInit=2021-12-31, dateEnd=2023-10-31, c_salary=1000.0, role=USR)', 'http://127.0.0.1:4001/api/v1/employes', '127.0.0.1', '2023-11-16 05:50:12', 'mcachi'),
+(117, NULL, 'REG USR', NULL, 'RegisterEmployerRequest(name=fgfghfghf, document=76867676, area_id=8, jornada_id=4, horario_id=2, dateInit=2023-10-31, dateEnd=2023-11-30, c_salary=1500.0, role=USR)', 'http://127.0.0.1:4001/api/v1/employes', '127.0.0.1', '2023-11-16 05:50:31', 'mcachi'),
+(118, NULL, 'DELETE USR', 'GDHHGFHFGHH', '45', 'http://127.0.0.1:4001/api/v1/employes/45', '127.0.0.1', '2023-11-16 05:55:13', 'mcachi'),
+(119, NULL, 'REG USR', NULL, 'RegisterEmployerRequest(name=drfgdrgdrgdrgdrgdrg, document=43543443, area_id=4, jornada_id=4, horario_id=1, dateInit=2023-10-31, dateEnd=2023-11-29, c_salary=34543.0, role=USR)', 'http://127.0.0.1:4001/api/v1/employes', '127.0.0.1', '2023-11-16 05:55:27', 'mcachi'),
+(120, NULL, 'REG USR', NULL, 'RegisterEmployerRequest(name=tfg, document=45654656, area_id=8, jornada_id=4, horario_id=2, dateInit=2023-10-31, dateEnd=2023-11-29, c_salary=2000.0, role=USR)', 'http://127.0.0.1:4001/api/v1/employes', '127.0.0.1', '2023-11-16 05:55:38', 'mcachi'),
+(121, NULL, 'REG USR', NULL, 'RegisterEmployerRequest(name=sfesfesef, document=34534543, area_id=8, jornada_id=4, horario_id=1, dateInit=2023-10-31, dateEnd=2023-11-29, c_salary=3445.0, role=USR)', 'http://127.0.0.1:4001/api/v1/employes', '127.0.0.1', '2023-11-16 06:00:46', 'mcachi'),
+(122, NULL, 'REG USR', NULL, 'RegisterEmployerRequest(name=drgdrgdrg, document=45345433, area_id=9, jornada_id=4, horario_id=1, dateInit=2023-11-01, dateEnd=2023-11-29, c_salary=3444.0, role=USR)', 'http://127.0.0.1:4001/api/v1/employes', '127.0.0.1', '2023-11-16 06:04:05', 'mcachi'),
+(123, NULL, 'REG USR', NULL, 'RegisterEmployerRequest(name=dfrggdrdrg, document=54645654, area_id=4, jornada_id=4, horario_id=1, dateInit=2023-10-31, dateEnd=2023-11-29, c_salary=4555.0, role=USR)', 'http://127.0.0.1:4001/api/v1/employes', '127.0.0.1', '2023-11-16 06:06:01', 'mcachi'),
+(124, NULL, 'DELETE USR', 'DFRGGDRDRG', '51', 'http://127.0.0.1:4001/api/v1/employes/51', '127.0.0.1', '2023-11-16 06:06:07', 'mcachi'),
+(125, NULL, 'DELETE AREA', 'Area(id=8, area=ABASTECIMIENTO, created_at=2023-11-12T17:32:29, updated_at=null, user_created=mcachi, user_updated=null)', '8', 'http://127.0.0.1:4001/api/v1/areas/8', '127.0.0.1', '2023-11-16 06:13:19', 'mcachi'),
+(126, NULL, 'DELETE MARCACION', '34 DRFGDRGDRGDRGDRGDRG M E 0 mcachi', '34', 'http://127.0.0.1:4001/api/v1/asistencia/34', '127.0.0.1', '2023-11-16 06:17:16', 'mcachi'),
+(127, NULL, 'DELETE USR', 'DRFGDRGDRGDRGDRGDRG', '47', 'http://127.0.0.1:4001/api/v1/employes/47', '127.0.0.1', '2023-11-16 06:17:20', 'mcachi'),
+(128, NULL, 'REG USR', NULL, 'RegisterEmployerRequest(name=PERSONAL i, document=65464868, area_id=4, jornada_id=4, horario_id=1, dateInit=2023-10-30, dateEnd=2023-12-08, c_salary=10000.0, role=USR)', 'http://127.0.0.1:4001/api/v1/employes', '127.0.0.1', '2023-11-16 06:22:35', 'mcachi'),
+(129, NULL, 'DELETE HORARIO', 'Horario(id=6, hour_in=09:00, hour_out=16:00, tolerancia=10, created_at=2023-10-24T16:39:07, updated_at=2023-11-12T17:10:56, user_created=, user_updated=mcachi)', '6', 'http://127.0.0.1:4001/api/v1/horarios/6', '127.0.0.1', '2023-11-16 06:22:51', 'mcachi'),
+(130, NULL, 'CLEAR LOG LOGIN', NULL, NULL, 'http://127.0.0.1:4001/api/v1/log/logins', '127.0.0.1', '2023-11-16 06:28:22', 'mcachi'),
+(131, NULL, 'CLEAR LOG LOGIN', NULL, NULL, 'http://127.0.0.1:4001/api/v1/log/logins', '127.0.0.1', '2023-11-16 06:28:57', 'mcachi'),
+(132, NULL, 'CLEAR LOG LOGIN', NULL, NULL, 'http://127.0.0.1:4001/api/v1/log/logins', '127.0.0.1', '2023-11-16 06:29:11', 'mcachi'),
+(133, NULL, 'REG TIPO CONTRATO', NULL, 'RegisterTypeContratoRequest(name=fhgfhfh)', 'http://127.0.0.1:4001/api/v1/typecontratos', '127.0.0.1', '2023-11-16 06:31:52', 'mcachi'),
+(134, NULL, 'DELETE TIPO CONTRATO', 'TypeContrato(id=6, name=fhgfhfh)', '6', 'http://127.0.0.1:4001/api/v1/typecontratos/6', '127.0.0.1', '2023-11-16 06:32:25', 'mcachi');
 
 -- --------------------------------------------------------
 
@@ -482,13 +506,7 @@ CREATE TABLE `users` (
 
 INSERT INTO `users` (`id`, `area_id`, `role`, `code`, `name`, `document`, `username`, `password`, `status`, `created_at`, `updated_at`) VALUES
 (1, NULL, 'ADMIN', '1234', 'ADMINISTRADOR', '99999999', 'mcachi', '$2a$10$471mL5gYdbFWQRT4WF/2zOvkik7HNu/.WXtsnh6LXHeodVmUPL42K', 1, '2023-10-19 03:07:44', '2023-11-13 03:14:31'),
-(35, 4, 'USR', '7638', 'TEST EMPLOYER', '56463534', '56463534', '$2a$10$P/zp2licgnVWHH4TmchlauTA3SjepyB2nRYalQnSWTJ/Lj374Yc9a', 1, '2023-11-12 22:40:27', '2023-11-12 23:19:04'),
-(36, 5, 'USR', '7990', 'TEST T RABAJADOR', '53645634', '53645634', '$2a$10$UOMnqdCormwslts10Ygp4.oJkOqn1SYsSXp26eeZkfkSDXJQDHkim', 1, '2023-11-12 23:44:04', '2023-11-13 01:17:40'),
-(37, 6, 'USR', '5995', 'TEST TT RABAJADOR', '24356654', '24356654', '$2a$10$d2Ojbt9J9XHKEgNKcrVix.UVMZGsC7M6iHiNbd9z8.b.7ecan.AUe', 1, '2023-11-12 23:44:35', NULL),
-(38, 3, 'USR', '1172', 'TEST TTT RABAJADOR', '45346453', '45346453', '$2a$10$gcz5zF8oh/9BT5O4HRnmqeXaaNNh1vgfGJLxVpzcYU8qFW9RSU1J.', 1, '2023-11-12 23:59:57', '2023-11-13 00:57:36'),
-(39, 2, 'USR', '5635', 'TEST TTT RABAJADOR', '31354648', '31354648', '$2a$10$bljDGmFI8Wu0BunI9I3XFOcxkhKXj5g44/KAqgvMLYgNSPSC8VwWm', 1, '2023-11-13 00:05:00', '2023-11-13 01:24:12'),
-(40, 5, 'USR', '5692', 'TEST TTTAMDKASDMNA', '65468465', '65468465', '$2a$10$skr.SrmfzOUywy0v3CwjXOB28bKzFlXuB1sJRmvq3tF2lDDhc8hx6', 1, '2023-11-13 01:28:28', NULL),
-(41, 3, 'USR', '8404', 'KDMFSO JSNDFJKSN', '54645643', '54645643', '$2a$10$xOD1O1HwFt1zdkkxFc2lEuo9mzAn.UukbpwKAuzxcmaAflqnBm1wW', 1, '2023-11-13 01:29:12', NULL);
+(52, 4, 'USR', '2767', 'PERSONAL I', '65464868', '65464868', '$2a$10$Iw..1/W8Xqv5dWewljscz..7id1NSoRk1B8X/Zs8kuweKAD3F9L3q', 1, '2023-11-16 06:22:35', NULL);
 
 --
 -- Índices para tablas volcadas
@@ -565,7 +583,7 @@ ALTER TABLE `areas`
 -- AUTO_INCREMENT de la tabla `contratos`
 --
 ALTER TABLE `contratos`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
 
 --
 -- AUTO_INCREMENT de la tabla `horarios`
@@ -577,31 +595,31 @@ ALTER TABLE `horarios`
 -- AUTO_INCREMENT de la tabla `in_out_users_at`
 --
 ALTER TABLE `in_out_users_at`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
 
 --
 -- AUTO_INCREMENT de la tabla `log_logins`
 --
 ALTER TABLE `log_logins`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=83;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de la tabla `log_updates`
 --
 ALTER TABLE `log_updates`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=111;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=135;
 
 --
 -- AUTO_INCREMENT de la tabla `types_contratos`
 --
 ALTER TABLE `types_contratos`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT de la tabla `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=43;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
 
 --
 -- Restricciones para tablas volcadas

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -15,23 +16,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SelectController {
     
-    private final SelectService selectService;
+    private final SelectService service;
 
-    @GetMapping(value = "/areas")
-    public List<Map<String, Object>> getSelectArea()
+    @GetMapping(value = "/{option}")
+    public List<Map<String, Object>> getSelect(@PathVariable String option)
     {
-        return selectService.getSelectArea();
+        return service.getSelect(option);
     }
 
-    @GetMapping(value = "/jornadas")
-    public List<Map<String, Object>> getSelectJornada()
-    {
-        return selectService.getSelectJornada();
-    }
 
-    @GetMapping(value = "/horarios")
-    public List<Map<String, Object>> getSelectHorario()
-    {
-        return selectService.getSelectHorario();
-    }
 }

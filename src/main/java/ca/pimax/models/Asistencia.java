@@ -32,10 +32,10 @@ public class Asistencia {
     private User user;
 
     @Column(name = "in_out", nullable = false, columnDefinition = "CHAR") // E: ENTRADA, S: SALIDA
-    private char inOut;
+    private String inOut;
 
     @Column(name = "type_r", nullable = false, columnDefinition = "CHAR") // A: AUTOMATICO, M: MANUAL
-    private char typeR;
+    private String typeR;
 
     @Column(nullable = true)
     private int min_cu;
@@ -44,4 +44,8 @@ public class Asistencia {
     private LocalDateTime timeAt;
 
     private String user_created;
+
+    public String getAsistenciatoString() {
+        return id.toString() + " " + user.getName() + " " + inOut + " " + typeR + " " + min_cu + " " + user_created;
+    }
 }

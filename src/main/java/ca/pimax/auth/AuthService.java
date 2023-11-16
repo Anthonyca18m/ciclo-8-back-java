@@ -1,15 +1,17 @@
 package ca.pimax.auth;
 
-// import java.time.LocalDateTime;
+
+import java.time.LocalDateTime;
 
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
-// import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import ca.pimax.auth.jwt.JwtService;
+import ca.pimax.models.LogLogin;
 import ca.pimax.models.User;
+import ca.pimax.repository.LogLoginRepository;
 import ca.pimax.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 
@@ -19,8 +21,8 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final JwtService jwtService;
-    // private final PasswordEncoder passwordEncoder;
-    private final AuthenticationManager authenticationManager;    
+    private final AuthenticationManager authenticationManager;
+    private final LogLoginRepository logLoginR;
 
     public LoginResponse login(LoginRequest request) 
     {
@@ -33,7 +35,7 @@ public class AuthService {
         UserDetails user = userRepository.findByUsername(request.getUsername()).orElseThrow();
         String token = jwtService.getToken(user);
         
-        this.insertLogLogin(detail.getId());
+        insertLogLogin(detail.getId());
 
         return LoginResponse.builder()
             .id(detail.getId())
@@ -46,7 +48,10 @@ public class AuthService {
 
     public void insertLogLogin(Long user_id)
     {
-        userRepository.insertLogLogin(user_id);
+        LogLogin logLogin = new LogLogin();
+        logLogin.setUser_id(user_id);
+        logLogin.setCreated_at(LocalDateTime.now());
+        logLoginR.save(logLogin);
     }
 
     public String generateCode(String username)

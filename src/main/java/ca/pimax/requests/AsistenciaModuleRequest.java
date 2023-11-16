@@ -1,5 +1,7 @@
 package ca.pimax.requests;
 
+import java.time.LocalDateTime;
+
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,8 +12,13 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AsistenciaFormRequest {
-    
+public class AsistenciaModuleRequest {
     @NotNull(message = "El campo es obligatorio.")
-    private String codigo;
+    private Long userId;
+
+    @NotNull(message = "El campo es obligatorio.")
+    private String typeR;
+
+    @NotNull(message = "El campo es obligatorio.")
+    private LocalDateTime date;
 }

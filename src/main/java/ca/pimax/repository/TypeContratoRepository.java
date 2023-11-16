@@ -10,10 +10,9 @@ import ca.pimax.models.TypeContrato;
 
 public interface TypeContratoRepository extends JpaRepository<TypeContrato, Long> {
 
-    @Query(value = "SELECT * FROM types_contratos h " + 
-        "WHERE (h.name LIKE %:search% OR h.id LIKE %:search%)  LIMIT :limite", nativeQuery = true)
+    @Query(value = "CALL list_type_contratos(:search, :limite)", nativeQuery = true)
     List<TypeContrato> findAll(@Param("search") String search, @Param("limite") Integer limite);
 
-    @Query(value = "SELECT COUNT(*) FROM contratos WHERE type_contrato_id = :type_contrato_id", nativeQuery = true)
+    @Query(value = "CALL exits_type_contratos(:type_contrato_id)", nativeQuery = true)
     int exitsUsers(@Param("type_contrato_id") Long type_contrato_id);
 }

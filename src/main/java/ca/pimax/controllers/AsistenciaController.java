@@ -46,7 +46,7 @@ public class AsistenciaController {
     @PostMapping(value = "/module")
     public ResponseEntity<?> registerManual(@Valid  @RequestBody  AsistenciaModuleRequest request, HttpServletRequest rq)
     {        
-        return service.registerManual(request.getUserId(), "M", request.getTypeR(), log.getUserSession(), request.getDate(), rq);        
+        return service.registerManual(request.getUserId(), request.getTypeR(), "M", log.getUserSession(), request.getDate(), rq);        
     }
 
     @DeleteMapping(path = "/{id}")

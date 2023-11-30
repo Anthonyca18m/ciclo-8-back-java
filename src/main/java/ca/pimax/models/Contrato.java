@@ -38,6 +38,10 @@ public class Contrato {
     private User user;
 
     @ManyToOne
+    @JoinColumn(nullable = true, insertable = true, name = "area_id", referencedColumnName = "id")
+    private Area area;
+
+    @ManyToOne
     @JoinColumn(nullable = true, insertable = true, name = "type_contrato_id", referencedColumnName = "id")
     private TypeContrato type;
 

@@ -50,4 +50,18 @@ public class ReportService {
         }).collect(Collectors.toList());        
     }
 
+    public List<Map<String, Object>> areaAsistence(LocalDate startDate, LocalDate endDate, Integer area_id) {
+        return reportR.areaAssistence(startDate, endDate, area_id).stream().map(rs -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("FECHA", rs[0]);
+            map.put("DIA", rs[1]);            
+            map.put("ENTRADA", rs[3]);
+            map.put("SALIDA", rs[4]);
+            map.put("TARDANZA", rs[5]);
+            map.put("AREA", rs[6]);
+            map.put("EMPLOYER", rs[7]);
+            return map;
+        }).collect(Collectors.toList()); 
+    }
+
 }

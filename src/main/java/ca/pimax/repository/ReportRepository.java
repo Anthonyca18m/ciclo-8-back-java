@@ -21,4 +21,8 @@ public interface ReportRepository extends JpaRepository<Area, Long>  {
     @Query(value = "CALL get_all_dates_in_range(:startDate, :endDate, :user_id)", nativeQuery = true)
     List<Object[]> graphicEmployerAssistence(@Param("startDate") LocalDate startDate
         , @Param("endDate") LocalDate endDate, @Param("user_id") Integer user_id); 
+
+    @Query(value = "CALL report_area_assistence(:startDate, :endDate, :area_id)", nativeQuery = true) 
+    List<Object[]> areaAssistence(@Param("startDate") LocalDate startDate
+        , @Param("endDate") LocalDate endDate, @Param("area_id") Integer area_id); 
 }

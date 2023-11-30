@@ -55,13 +55,13 @@ public class EmployerService {
         logService.insertLog(rq, "UPDATE USR", user.getName(), request.toString());
 
         user.setName(request.getName());
-        user.setArea(area);
         user.setDocument(request.getDocument());        
         user.setStatus(request.getStatus());
         user.setUpdated_at(LocalDateTime.now());
 
         Contrato contrato = user.getContrato();
         contrato.setType(type);
+        contrato.setArea(area);
         contrato.setHorario_id(request.getHorario_id());
         contrato.setDate_init(request.getDateInit());
         contrato.setDate_end(request.getDateEnd());
@@ -85,8 +85,7 @@ public class EmployerService {
 
         User user = User.builder()
                 .username(request.getDocument().toString())
-                .password(passwordEncoder.encode(LocalDateTime.now().toString()))
-                .area(area)
+                .password(passwordEncoder.encode(LocalDateTime.now().toString()))                
                 .code(generateCode(request.getName()))
                 .name(request.getName().toUpperCase())
                 .document(request.getDocument())
@@ -101,6 +100,7 @@ public class EmployerService {
 
         Contrato contrato = Contrato.builder()
             .user(user)
+            .area(area)
             .type(type)
             .horario_id(request.getHorario_id())
             .date_init(request.getDateInit())

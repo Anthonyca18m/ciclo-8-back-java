@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 22-11-2023 a las 23:21:09
+-- Tiempo de generación: 01-12-2023 a las 00:05:02
 -- Versión del servidor: 10.4.28-MariaDB
 -- Versión de PHP: 8.0.28
 
@@ -30,7 +30,7 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `clear_logins` ()   BEGIN
 END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `exits_area_users` (IN `area` INT)   BEGIN
-    SELECT COUNT(*) FROM users WHERE area_id = area;
+    SELECT COUNT(*) FROM contratos WHERE area_id = area;
 END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `exits_horario_contratos` (IN `horario` INT)   BEGIN
@@ -137,17 +137,6 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `graphic_tardanzas` ()   BEGIN
     
 END$$
 
-CREATE DEFINER=`root`@`localhost` PROCEDURE `graphic_tardanza_x_area` ()   BEGIN
-    SELECT count(*) as TOTAL,
-		a.area as AREA
-	FROM in_out_users_at ou INNER JOIN users u ON ou.user_id = u.id INNER JOIN areas a ON u.area_id = a.id
-	WHERE ou.time_at BETWEEN 
-		STR_TO_DATE(CONCAT(YEAR(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)), '-', MONTH(DATE_SUB(CURDATE(), INTERVAL 2 MONTH)), '-01'), '%Y-%m-%d')
-		AND LAST_DAY(CURDATE()) AND ou.in_out = 'E' AND ou.min_cu > 0
-		GROUP BY a.area;
-    
-END$$
-
 CREATE DEFINER=`root`@`localhost` PROCEDURE `list_areas` (IN `searching` VARCHAR(255), IN `limitRows` INT)   BEGIN
     SELECT * FROM areas a WHERE (a.area LIKE CONCAT('%', searching, '%') OR a.id LIKE CONCAT('%', searching, '%')) LIMIT limitRows;
 END$$
@@ -164,9 +153,9 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `list_asistencia` (IN `searching` VA
 END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `list_employes` (IN `searching` VARCHAR(255), IN `limitRows` INT, IN `area_id` VARCHAR(255))   BEGIN
-    SELECT * FROM users u 
+    SELECT u.* FROM users u INNER JOIN contratos c ON c.user_id = u.id 
     	WHERE (u.name LIKE CONCAT('%', searching, '%') OR u.document LIKE CONCAT('%', searching, '%') OR u.code LIKE CONCAT('%', searching, '%'))  
-        AND (area_id IS NULL OR u.area_id = area_id) 
+        AND (area_id IS NULL OR c.area_id = area_id) 
         AND u.role = 'USR' LIMIT limitRows;
 END$$
 
@@ -208,6 +197,122 @@ CREATE DEFINER=`root`@`localhost` PROCEDURE `list_widgets` ()   BEGIN
 	SELECT 'Contratos' AS NAME, 'far fa-clipboard-list' AS ICON, COUNT(*) AS TOTAL FROM contratos WHERE status = 1
 	UNION ALL
 	SELECT 'Movimientos' AS NAME, 'far fa-cctv' AS ICON, COUNT(*) AS TOTAL FROM log_updates;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `report_area_assistence` (IN `startDate` DATE, IN `endDate` DATE, IN `areaId` INT)   BEGIN
+DECLARE currentDate DATE;
+DECLARE areaName varchar(255);
+  SET currentDate = startDate;
+
+  -- Verificar si la tabla temporal ya existe y eliminarla en caso afirmativo
+  DROP TEMPORARY TABLE IF EXISTS DateRange;
+
+  -- Crear una tabla temporal para almacenar las fechas y los nombres de los días
+  CREATE TEMPORARY TABLE DateRange (
+    date DATE,
+    dayName VARCHAR(9)
+  );
+
+  -- Bucle para generar todas las fechas y los nombres de los días entre startDate y endDate
+  WHILE currentDate <= endDate DO
+    INSERT INTO DateRange (date, dayName) VALUES (currentDate, DATE_FORMAT(currentDate, '%W'));
+    SET currentDate = DATE_ADD(currentDate, INTERVAL 1 DAY);
+  END WHILE;
+  
+  SELECT area INTO areaName FROM areas where id = areaId;
+
+  -- Seleccionar todas las fechas y los nombres de los días generados
+  SELECT date, 
+	CASE dayName
+    WHEN 'Monday' THEN 'Lunes'
+    WHEN 'Tuesday' THEN 'Martes'
+    WHEN 'Wednesday' THEN 'Miércoles'
+    WHEN 'Thursday' THEN 'Jueves'
+    WHEN 'Friday' THEN 'Viernes'
+    WHEN 'Saturday' THEN 'Sábado'
+    WHEN 'Sunday' THEN 'Domingo'
+    ELSE 'undefined' END dayName,
+    table_u.user_id,
+    table_u.entrada,
+    table_u.salida,
+    table_u.min_cu as tardanza,
+    areaName,
+    name as employer
+  FROM DateRange LEFT JOIN (/*
+	SELECT ou.user_id
+		, ou.time_at as entrada
+        , lf.salida
+        , CAST(ou.time_at as date) as fecha
+        , ou.min_cu
+        , u.name
+	FROM in_out_users_at  ou 
+		INNER JOIN contratos c ON ou.user_id = c.user_id 
+        INNER JOIN areas a ON c.area_id = a.id 
+        INNER JOIN users u ON c.user_id = u.id
+	LEFT JOIN (
+		SELECT ou.user_id, '' as entrada, ou.time_at as salida 
+			FROM in_out_users_at  ou 
+				INNER JOIN contratos c ON ou.user_id = c.user_id 
+                INNER JOIN areas a ON c.area_id = a.id 
+                INNER JOIN users u ON c.user_id = u.id
+		 where time_at BETWEEN startDate AND endDate AND in_out = 'S' AND a.id = areaId
+	) lf on ou.user_id = lf.user_id and CAST(ou.time_at AS DATE) = CAST(lf.salida AS DATE)
+	
+    where time_at BETWEEN startDate AND endDate AND ou.in_out = 'E' AND a.id = areaId 
+		group by CAST(ou.time_at as date) asc*/
+        SELECT ou.user_id
+		, ou.time_at as entrada
+        , lf.salida
+        , CAST(ou.time_at as date) as fecha
+        , ou.min_cu
+        , u.name
+	FROM in_out_users_at  ou 
+		INNER JOIN contratos c ON ou.user_id = c.user_id 
+        INNER JOIN areas a ON c.area_id = a.id 
+        INNER JOIN users u ON c.user_id = u.id
+        LEFT JOIN (
+				SELECT ou.user_id,
+				'' as entrada
+                , ou.time_at as salida 
+				, 'E' as tipo
+				, ou.min_cu
+				, u.name
+			FROM in_out_users_at  ou 
+				INNER JOIN contratos c ON ou.user_id = c.user_id 
+				INNER JOIN areas a ON c.area_id = a.id 
+				INNER JOIN users u ON c.user_id = u.id
+				where time_at BETWEEN startDate AND endDate AND in_out = 'S' AND a.id = areaId
+        ) lf ON CAST(ou.time_at AS DATE) = CAST(lf.salida AS DATE) 
+        where ou.time_at BETWEEN startDate AND endDate AND ou.in_out = 'E' AND a.id = areaId
+        group by CAST(ou.time_at as date) asc, ou.user_id
+  ) table_u ON DateRange.date = table_u.fecha;
+  
+  
+  
+  
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `report_contratos` ()   BEGIN
+    SELECT 
+		u.name as EMPLOYER,
+		a.area as AREA,
+		h.hour_in as ENTRADA,
+		h.hour_out AS SALIDA,
+		tc.name as TIPO_CONTRATO,
+		c.salario as SALARIO,
+		c.date_init as FECHA_INICIO,
+		c.date_end as FECHA_VENCIMIENTO,
+		CASE 
+			WHEN c.status = 1 THEN 'ACTIVO' 
+			WHEN c.status = 0 THEN 'INACTIVO'
+			WHEN c.date_end < CURDATE() THEN 'VENCIDO'
+				ELSE 'undefined' 
+			END AS ESTADO
+	 FROM contratos c 
+		INNER JOIN horarios h ON c.horario_id = h.id
+		INNER JOIN types_contratos tc ON c.type_contrato_id = tc.id
+		INNER JOIN areas a ON a.id = c.area_id
+		INNER JOIN users u ON c.user_id = u.id;
 END$$
 
 CREATE DEFINER=`root`@`localhost` PROCEDURE `select_uni` (IN `type_select` VARCHAR(255))   BEGIN
@@ -332,6 +437,7 @@ INSERT INTO `areas` (`id`, `area`, `created_at`, `updated_at`, `user_created`, `
 CREATE TABLE `contratos` (
   `id` bigint(20) UNSIGNED NOT NULL,
   `user_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `area_id` bigint(20) UNSIGNED DEFAULT NULL,
   `horario_id` bigint(20) UNSIGNED DEFAULT NULL,
   `type_contrato_id` bigint(20) UNSIGNED DEFAULT NULL,
   `date_init` date NOT NULL,
@@ -348,16 +454,17 @@ CREATE TABLE `contratos` (
 -- Volcado de datos para la tabla `contratos`
 --
 
-INSERT INTO `contratos` (`id`, `user_id`, `horario_id`, `type_contrato_id`, `date_init`, `date_end`, `salario`, `status`, `created_at`, `updated_at`, `user_created`, `user_updated`) VALUES
-(36, 52, 1, 4, '2023-10-27', '2023-12-05', 10000, '1', '2023-11-16 06:22:35', '2023-11-22 21:58:07', 'mcachi', 'mcachi'),
-(37, 53, 1, 1, '2022-10-29', '2023-12-29', 1500, '1', '2023-11-21 00:11:37', '2023-11-22 21:46:04', 'mcachi', 'mcachi'),
-(38, 54, 1, 1, '2023-10-28', '2023-12-28', 1500, '1', '2023-11-21 00:12:09', '2023-11-22 21:47:00', 'mcachi', 'mcachi'),
-(39, 55, 1, 1, '2023-10-30', '2023-12-30', 1700, '1', '2023-11-21 00:12:33', '2023-11-22 21:47:13', 'mcachi', 'mcachi'),
-(40, 56, 1, 1, '2023-10-29', '2023-12-29', 1800, '1', '2023-11-21 00:13:14', '2023-11-22 21:47:28', 'mcachi', 'mcachi'),
-(41, 57, 1, 4, '2023-10-30', '2023-12-30', 1200, '1', '2023-11-21 00:14:06', '2023-11-22 21:47:41', 'mcachi', 'mcachi'),
-(42, 58, 1, 4, '2023-10-30', '2023-12-30', 1300, '1', '2023-11-21 00:14:30', '2023-11-22 21:47:56', 'mcachi', 'mcachi'),
-(43, 59, 1, 4, '2023-10-30', '2023-12-30', 1200, '1', '2023-11-21 00:15:41', '2023-11-22 21:48:09', 'mcachi', 'mcachi'),
-(44, 60, 1, 1, '2023-10-30', '2023-12-30', 5000, '1', '2023-11-21 00:17:35', '2023-11-22 21:48:26', 'mcachi', 'mcachi');
+INSERT INTO `contratos` (`id`, `user_id`, `area_id`, `horario_id`, `type_contrato_id`, `date_init`, `date_end`, `salario`, `status`, `created_at`, `updated_at`, `user_created`, `user_updated`) VALUES
+(36, 52, 4, 1, 4, '2023-10-26', '2024-12-31', 10000, '1', '2023-11-16 06:22:35', '2023-11-30 15:03:26', 'mcachi', 'mcachi'),
+(37, 53, 4, 1, 1, '2022-10-29', '2024-12-31', 1500, '1', '2023-11-21 00:11:37', '2023-11-22 21:46:04', 'mcachi', 'mcachi'),
+(38, 54, 4, 1, 1, '2023-10-28', '2024-12-31', 1500, '1', '2023-11-21 00:12:09', '2023-11-22 21:47:00', 'mcachi', 'mcachi'),
+(39, 55, 4, 1, 1, '2023-10-30', '2024-12-31', 1700, '1', '2023-11-21 00:12:33', '2023-11-22 21:47:13', 'mcachi', 'mcachi'),
+(40, 56, 4, 1, 1, '2023-10-29', '2024-12-31', 1800, '1', '2023-11-21 00:13:14', '2023-11-22 21:47:28', 'mcachi', 'mcachi'),
+(41, 57, 4, 1, 4, '2023-10-28', '2024-11-27', 1200, '1', '2023-11-21 00:14:06', '2023-11-30 18:56:00', 'mcachi', 'mcachi'),
+(42, 58, 4, 1, 4, '2023-10-30', '2024-12-31', 1300, '1', '2023-11-21 00:14:30', '2023-11-22 21:47:56', 'mcachi', 'mcachi'),
+(43, 59, 4, 1, 4, '2023-10-30', '2024-12-31', 1200, '1', '2023-11-21 00:15:41', '2023-11-22 21:48:09', 'mcachi', 'mcachi'),
+(44, 60, 4, 1, 1, '2023-10-30', '2024-12-31', 5000, '1', '2023-11-21 00:17:35', '2023-11-22 21:48:26', 'mcachi', 'mcachi'),
+(45, 61, 9, 1, 4, '2023-10-31', '2024-12-31', 1500, '1', '2023-11-30 14:49:31', NULL, 'mcachi', NULL);
 
 -- --------------------------------------------------------
 
@@ -4577,7 +4684,17 @@ INSERT INTO `log_logins` (`id`, `user_id`, `created_at`) VALUES
 (27, 1, '2023-11-22 14:54:01.000000'),
 (28, 1, '2023-11-22 16:20:46.000000'),
 (29, 1, '2023-11-22 16:45:38.000000'),
-(30, 1, '2023-11-22 16:54:51.000000');
+(30, 1, '2023-11-22 16:54:51.000000'),
+(31, 1, '2023-11-27 19:58:30.000000'),
+(32, 1, '2023-11-30 09:46:03.000000'),
+(33, 1, '2023-11-30 10:24:02.000000'),
+(34, 1, '2023-11-30 10:27:12.000000'),
+(35, 1, '2023-11-30 11:38:11.000000'),
+(36, 1, '2023-11-30 12:10:10.000000'),
+(37, 1, '2023-11-30 13:01:13.000000'),
+(38, 1, '2023-11-30 13:53:55.000000'),
+(39, 1, '2023-11-30 13:59:00.000000'),
+(40, 1, '2023-11-30 17:55:32.000000');
 
 -- --------------------------------------------------------
 
@@ -4764,7 +4881,11 @@ INSERT INTO `log_updates` (`id`, `action_name`, `orig_data`, `rep_data`, `url_fu
 (161, 'UPDATE USR', 'Roberto Acosta Herrera', 'EmployerUpdateRequest(name=Roberto Acosta Herrera, document=65464868, area_id=4, jornada_id=4, horario_id=1, dateInit=2023-10-28, dateEnd=2023-12-06, c_salary=10000.0, status=1, role=USR)', 'http://127.0.0.1:4001/api/v1/employes/52', '127.0.0.1', '2023-11-22 21:52:47', 'mcachi'),
 (162, 'UPDATE ADM', 'mcachi | ADMINISTRADOR', 'mcachi | ADMINISTRADOR', 'http://127.0.0.1:4001/api/v1/users/1', '127.0.0.1', '2023-11-22 21:57:21', NULL),
 (163, 'UPDATE ADM', 'mcachi | ADMINISTRADOR', 'mcachi | ADMINISTRADOR', 'http://127.0.0.1:4001/api/v1/users/1', '127.0.0.1', '2023-11-22 21:58:00', 'mcachi'),
-(164, 'UPDATE USR', 'Roberto Acosta Herrera', 'EmployerUpdateRequest(name=Roberto Acosta Herrera, document=65464868, area_id=4, jornada_id=4, horario_id=1, dateInit=2023-10-27, dateEnd=2023-12-05, c_salary=10000.0, status=1, role=USR)', 'http://127.0.0.1:4001/api/v1/employes/52', '127.0.0.1', '2023-11-22 21:58:07', 'mcachi');
+(164, 'UPDATE USR', 'Roberto Acosta Herrera', 'EmployerUpdateRequest(name=Roberto Acosta Herrera, document=65464868, area_id=4, jornada_id=4, horario_id=1, dateInit=2023-10-27, dateEnd=2023-12-05, c_salary=10000.0, status=1, role=USR)', 'http://127.0.0.1:4001/api/v1/employes/52', '127.0.0.1', '2023-11-22 21:58:07', 'mcachi'),
+(165, 'REG USR', NULL, 'RegisterEmployerRequest(name=testawea, document=32423432, area_id=9, jornada_id=4, horario_id=1, dateInit=2023-10-31, dateEnd=2024-10-31, c_salary=1500.0, role=USR)', 'http://127.0.0.1:4001/api/v1/employes', '127.0.0.1', '2023-11-30 14:49:31', 'mcachi'),
+(166, 'UPDATE USR', 'Roberto Acosta Herrera', 'EmployerUpdateRequest(name=Roberto Acosta Herrera, document=65464868, area_id=9, jornada_id=4, horario_id=1, dateInit=2023-10-26, dateEnd=2023-12-04, c_salary=10000.0, status=1, role=USR)', 'http://127.0.0.1:4001/api/v1/employes/52', '127.0.0.1', '2023-11-30 15:03:26', 'mcachi'),
+(167, 'UPDATE USR', 'Claudia Fernandez Rodriguez', 'EmployerUpdateRequest(name=Claudia Fernandez Rodriguez, document=46846846, area_id=4, jornada_id=4, horario_id=1, dateInit=2023-10-29, dateEnd=2023-11-28, c_salary=1200.0, status=1, role=USR)', 'http://127.0.0.1:4001/api/v1/employes/57', '127.0.0.1', '2023-11-30 18:55:16', 'mcachi'),
+(168, 'UPDATE USR', 'Claudia Fernandez Rodriguez', 'EmployerUpdateRequest(name=Claudia Fernandez Rodriguez, document=46846846, area_id=4, jornada_id=4, horario_id=1, dateInit=2023-10-28, dateEnd=2024-11-27, c_salary=1200.0, status=1, role=USR)', 'http://127.0.0.1:4001/api/v1/employes/57', '127.0.0.1', '2023-11-30 18:56:00', 'mcachi');
 
 -- --------------------------------------------------------
 
@@ -4794,7 +4915,6 @@ INSERT INTO `types_contratos` (`id`, `name`) VALUES
 
 CREATE TABLE `users` (
   `id` bigint(20) UNSIGNED NOT NULL,
-  `area_id` bigint(20) UNSIGNED DEFAULT NULL,
   `role` enum('ADMIN','USR') NOT NULL,
   `code` varchar(255) NOT NULL,
   `name` varchar(255) NOT NULL,
@@ -4810,17 +4930,18 @@ CREATE TABLE `users` (
 -- Volcado de datos para la tabla `users`
 --
 
-INSERT INTO `users` (`id`, `area_id`, `role`, `code`, `name`, `document`, `username`, `password`, `status`, `created_at`, `updated_at`) VALUES
-(1, NULL, 'ADMIN', '1234', 'ADMINISTRADOR', '99999999', 'mcachi', '$2a$10$PhZWx4sumsUEP/F60rCcLODecYz05YpelnkX7.wd6uJcG7Jtkun2i', 1, '2023-10-19 03:07:44', '2023-11-22 21:58:00'),
-(52, 4, 'USR', '2767', 'Roberto Acosta Herrera', '65464868', '65464868', '$2a$10$Iw..1/W8Xqv5dWewljscz..7id1NSoRk1B8X/Zs8kuweKAD3F9L3q', 1, '2023-11-16 06:22:35', '2023-11-22 21:58:07'),
-(53, 5, 'USR', '4134', 'Oscar Garcia Medina', '65468484', '65468484', '$2a$10$Bfb/v0sWzzOkhPchmqoxIOFw1s6xd79reAGqsiJLy0TyFAFkhS1ly', 1, '2023-11-21 00:11:37', '2023-11-22 21:46:04'),
-(54, 5, 'USR', '3917', 'Ramon Benitez Acosta', '23132131', '23132131', '$2a$10$CbCIyn1S4FR.WO55g4v7lefhpW23Hysb0Vq4XZ0Our.2/1wutsB.e', 1, '2023-11-21 00:12:09', '2023-11-22 21:47:00'),
-(55, 4, 'USR', '8435', 'Horacio Aguirre Gonzalez', '64468844', '64468844', '$2a$10$kGhgjQ/tQUJFKKXHFz4TqO.Fw19YiDrGqZScuKixDfK44Fl4DZcn.', 1, '2023-11-21 00:12:33', '2023-11-22 21:47:13'),
-(56, 5, 'USR', '9774', 'Norma Romero Ramirez', '16546846', '16546846', '$2a$10$E9r9UZqAM9kUhVqoMvixgux5zeUbUrOWLXHlw2B40Khfors6uRfya', 1, '2023-11-21 00:13:14', '2023-11-22 21:47:28'),
-(57, 9, 'USR', '3563', 'Claudia Fernandez Rodriguez', '46846846', '46846846', '$2a$10$q3GHlB3Q6O8tc3euX/M77uvyFKeiKN9lIvwasiBY8WgZtfRQ6PPw6', 1, '2023-11-21 00:14:06', '2023-11-22 21:47:41'),
-(58, 9, 'USR', '8496', 'Mara Herrera Suarez', '89849498', '89849498', '$2a$10$7OJDQ6VoB1S5R7yAPFMcv.NMH2L0F.PaecUJHTu2Aw.FHQrcFrqk6', 1, '2023-11-21 00:14:30', '2023-11-22 21:47:56'),
-(59, 9, 'USR', '1791', 'Claudio Romero Gonzalez', '14141414', '14141414', '$2a$10$fvHIt0HSr8H.MxZGW6/WPuggRgEN.ERRl1iMT6DFhQTqggKRHISFC', 1, '2023-11-21 00:15:41', '2023-11-22 21:48:09'),
-(60, 3, 'USR', '9338', 'Mirta Perez Diaz', '51341354', '51341354', '$2a$10$O283r.DuhbJQiuYswbJCmucaIEhi8IrYT1InSu0tPaJ113H8hHmHi', 1, '2023-11-21 00:17:35', '2023-11-22 21:48:26');
+INSERT INTO `users` (`id`, `role`, `code`, `name`, `document`, `username`, `password`, `status`, `created_at`, `updated_at`) VALUES
+(1, 'ADMIN', '1234', 'ADMINISTRADOR', '99999999', 'mcachi', '$2a$10$PhZWx4sumsUEP/F60rCcLODecYz05YpelnkX7.wd6uJcG7Jtkun2i', 1, '2023-10-19 03:07:44', '2023-11-22 21:58:00'),
+(52, 'USR', '2767', 'Roberto Acosta Herrera', '65464868', '65464868', '$2a$10$Iw..1/W8Xqv5dWewljscz..7id1NSoRk1B8X/Zs8kuweKAD3F9L3q', 1, '2023-11-16 06:22:35', '2023-11-30 15:03:26'),
+(53, 'USR', '4134', 'Oscar Garcia Medina', '65468484', '65468484', '$2a$10$Bfb/v0sWzzOkhPchmqoxIOFw1s6xd79reAGqsiJLy0TyFAFkhS1ly', 1, '2023-11-21 00:11:37', '2023-11-22 21:46:04'),
+(54, 'USR', '3917', 'Ramon Benitez Acosta', '23132131', '23132131', '$2a$10$CbCIyn1S4FR.WO55g4v7lefhpW23Hysb0Vq4XZ0Our.2/1wutsB.e', 1, '2023-11-21 00:12:09', '2023-11-22 21:47:00'),
+(55, 'USR', '8435', 'Horacio Aguirre Gonzalez', '64468844', '64468844', '$2a$10$kGhgjQ/tQUJFKKXHFz4TqO.Fw19YiDrGqZScuKixDfK44Fl4DZcn.', 1, '2023-11-21 00:12:33', '2023-11-22 21:47:13'),
+(56, 'USR', '9774', 'Norma Romero Ramirez', '16546846', '16546846', '$2a$10$E9r9UZqAM9kUhVqoMvixgux5zeUbUrOWLXHlw2B40Khfors6uRfya', 1, '2023-11-21 00:13:14', '2023-11-22 21:47:28'),
+(57, 'USR', '3563', 'Claudia Fernandez Rodriguez', '46846846', '46846846', '$2a$10$q3GHlB3Q6O8tc3euX/M77uvyFKeiKN9lIvwasiBY8WgZtfRQ6PPw6', 1, '2023-11-21 00:14:06', '2023-11-30 18:56:00'),
+(58, 'USR', '8496', 'Mara Herrera Suarez', '89849498', '89849498', '$2a$10$7OJDQ6VoB1S5R7yAPFMcv.NMH2L0F.PaecUJHTu2Aw.FHQrcFrqk6', 1, '2023-11-21 00:14:30', '2023-11-22 21:47:56'),
+(59, 'USR', '1791', 'Claudio Romero Gonzalez', '14141414', '14141414', '$2a$10$fvHIt0HSr8H.MxZGW6/WPuggRgEN.ERRl1iMT6DFhQTqggKRHISFC', 1, '2023-11-21 00:15:41', '2023-11-22 21:48:09'),
+(60, 'USR', '9338', 'Mirta Perez Diaz', '51341354', '51341354', '$2a$10$O283r.DuhbJQiuYswbJCmucaIEhi8IrYT1InSu0tPaJ113H8hHmHi', 1, '2023-11-21 00:17:35', '2023-11-22 21:48:26'),
+(61, 'USR', '9066', 'TESTAWEA', '32423432', '32423432', '$2a$10$aPRi.tBL6Kct40b1KjJxkuTNJ/toLhMRHjNM6BKpU6nBOqks/EPB6', 1, '2023-11-30 14:49:31', NULL);
 
 --
 -- Índices para tablas volcadas
@@ -4839,7 +4960,8 @@ ALTER TABLE `contratos`
   ADD PRIMARY KEY (`id`),
   ADD KEY `type_contrato_id` (`type_contrato_id`),
   ADD KEY `user_id` (`user_id`),
-  ADD KEY `horario_id` (`horario_id`);
+  ADD KEY `horario_id` (`horario_id`),
+  ADD KEY `area_id` (`area_id`);
 
 --
 -- Indices de la tabla `horarios`
@@ -4880,8 +5002,7 @@ ALTER TABLE `users`
   ADD UNIQUE KEY `code` (`code`),
   ADD UNIQUE KEY `UKr43af9ap4edm43mmtq01oddj6` (`username`),
   ADD UNIQUE KEY `document` (`document`),
-  ADD UNIQUE KEY `UKgn31mv5j1hsjp47mbmonwbo9w` (`username`,`document`),
-  ADD KEY `area_id` (`area_id`);
+  ADD UNIQUE KEY `UKgn31mv5j1hsjp47mbmonwbo9w` (`username`,`document`);
 
 --
 -- AUTO_INCREMENT de las tablas volcadas
@@ -4897,7 +5018,7 @@ ALTER TABLE `areas`
 -- AUTO_INCREMENT de la tabla `contratos`
 --
 ALTER TABLE `contratos`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
 
 --
 -- AUTO_INCREMENT de la tabla `horarios`
@@ -4909,19 +5030,19 @@ ALTER TABLE `horarios`
 -- AUTO_INCREMENT de la tabla `in_out_users_at`
 --
 ALTER TABLE `in_out_users_at`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4230;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4231;
 
 --
 -- AUTO_INCREMENT de la tabla `log_logins`
 --
 ALTER TABLE `log_logins`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
 
 --
 -- AUTO_INCREMENT de la tabla `log_updates`
 --
 ALTER TABLE `log_updates`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=165;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=169;
 
 --
 -- AUTO_INCREMENT de la tabla `types_contratos`
@@ -4933,7 +5054,7 @@ ALTER TABLE `types_contratos`
 -- AUTO_INCREMENT de la tabla `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=61;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=62;
 
 --
 -- Restricciones para tablas volcadas
@@ -4945,19 +5066,14 @@ ALTER TABLE `users`
 ALTER TABLE `contratos`
   ADD CONSTRAINT `contratos_ibfk_1` FOREIGN KEY (`type_contrato_id`) REFERENCES `types_contratos` (`id`),
   ADD CONSTRAINT `contratos_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
-  ADD CONSTRAINT `contratos_ibfk_3` FOREIGN KEY (`horario_id`) REFERENCES `horarios` (`id`) ON DELETE SET NULL ON UPDATE SET NULL;
+  ADD CONSTRAINT `contratos_ibfk_3` FOREIGN KEY (`horario_id`) REFERENCES `horarios` (`id`) ON DELETE SET NULL ON UPDATE SET NULL,
+  ADD CONSTRAINT `contratos_ibfk_4` FOREIGN KEY (`area_id`) REFERENCES `areas` (`id`) ON DELETE SET NULL;
 
 --
 -- Filtros para la tabla `in_out_users_at`
 --
 ALTER TABLE `in_out_users_at`
-  ADD CONSTRAINT `in_out_users_at_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE NO ACTION;
-
---
--- Filtros para la tabla `users`
---
-ALTER TABLE `users`
-  ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`area_id`) REFERENCES `areas` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+  ADD CONSTRAINT `in_out_users_at_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `contratos` (`user_id`) ON DELETE NO ACTION;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

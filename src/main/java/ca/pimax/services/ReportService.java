@@ -64,4 +64,20 @@ public class ReportService {
         }).collect(Collectors.toList()); 
     }
 
+    public List<Map<String, Object>> reportContratos() {
+        return reportR.reportContratos().stream().map(rs -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("EMPLOYER", rs[0]);
+            map.put("AREA", rs[1]);
+            map.put("ENTRADA", rs[2]);
+            map.put("SALIDA", rs[3]);
+            map.put("TIPO_CONTRATO", rs[4]);
+            map.put("SALARIO", rs[5]);
+            map.put("FECHA_INICIO", rs[6]);
+            map.put("FECHA_FIN", rs[7]);
+            map.put("ESTADO", rs[8]);
+            return map;
+        }).collect(Collectors.toList()); 
+    }
+
 }

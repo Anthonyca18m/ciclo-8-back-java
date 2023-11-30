@@ -25,4 +25,7 @@ public interface ReportRepository extends JpaRepository<Area, Long>  {
     @Query(value = "CALL report_area_assistence(:startDate, :endDate, :area_id)", nativeQuery = true) 
     List<Object[]> areaAssistence(@Param("startDate") LocalDate startDate
         , @Param("endDate") LocalDate endDate, @Param("area_id") Integer area_id); 
+    
+    @Query(value = "CALL report_contratos()", nativeQuery = true)
+    List<Object[]> reportContratos(); 
 }

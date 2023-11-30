@@ -40,5 +40,10 @@ public class ReportController {
     {
         return reportS.areaAsistence(request.getDateInit(), request.getDateEnd(), request.getArea_id());
     }
+
+    @GetMapping(value = "contratos")
+    public List<?> reportContratos() {
+        return reportS.reportContratos();
+    }
     
 }

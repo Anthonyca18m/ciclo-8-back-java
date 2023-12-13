@@ -48,7 +48,7 @@ public class AsistenciaService {
         asistencia.setInOut(typeR);
         asistencia.setTypeR(typeES);
         asistencia.setTimeAt(date_at);
-        asistencia.setMin_cu(0);
+        asistencia.setMin_cu((typeR.equals("E")) ? repo.getMinTardanzaRM(user.getId(), date_at) : 0);
         asistencia.setUser_created(log.getUserSession());
         repo.save(asistencia);
 

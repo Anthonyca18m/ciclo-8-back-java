@@ -1,5 +1,6 @@
 package ca.pimax.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -17,4 +18,8 @@ public interface AsistenciaRepository extends JpaRepository<Asistencia, Long> {
 
     @Query(value = "SELECT registrarAsistencia(:codigo, :type_r, :user_created)", nativeQuery = true)
     String registerAsistenciaA(@Param("codigo") String codigo, @Param("type_r") String type_r, @Param("user_created") String user_created);
+
+    @Query(value = "SELECT getMinTardanzaRM(:user_id, :time_at)", nativeQuery = true)
+    Integer getMinTardanzaRM(@Param("user_id") Long user_id, @Param("time_at") LocalDateTime time_at);
+
 }
